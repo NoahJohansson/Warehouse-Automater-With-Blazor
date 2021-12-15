@@ -1,0 +1,141 @@
+﻿@page "/addorder"
+
+@using Projekt_OOP2_Grupp_24.Data
+
+@inject IProductRepo productService;
+@inject ICustomerRepo customerService;
+@inject IOrderRepo orderService;
+@inject IOrderLineRepo orderLineService;
+<h1> Add Order </h1>
+
+<div class="row m-5">
+    <div class="col-5 bg-light m-3 justify-content-start">
+        <div class="p-3 mb-3 bg-primary text-white text-center">
+            Add new Order
+        </div>
+        <EditForm Model="@newOrder" OnValidSubmit="(() => AddnewOrderLineAndOrder())">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="form-group">
+                <label for="text">Choose Customer</label>
+                <InputSelectNumber @bind-Value="newOrder.CustomerId">
+                    @foreach (var cust in Customers)
+                    {
+                        <option value="@cust.Id"> @cust.Name</option>
+                    }
+                </InputSelectNumber>
+            </div>
+            <div class="form-group">
+                <label for="text">Delivery Adress</label>
+                <input type="text" id="deliveryadress" class="form-control" @bind-value="@newOrder.DeliveryAdress" />
+            </div>
+            <div class="text-center p-3 mb-3">
+                <button class="btn btn-success" disabled="@IsButtonDisabled" type="submit">Add Order</button>
+            </div>
+        </EditForm>
+
+        <EditForm Model="@newOrderLine" OnValidSubmit="(() => AddOrderLineToList())">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="form-group">
+                <label for="text">Choose Product</label>
+                <InputSelectNumber @bind-Value="newOrderLine.ProductId"  @oninput="@(e => ChangeInputTrue())">
+                    @foreach (var prod in Products)
+                    {
+                        <option value="@prod.Id"> @prod.Name</option>
+                    }
+                </InputSelectNumber>
+            </div>
+            <div class="form-group">
+                <label for="text">Quantity</label>
+                <input disabled="@IsInputDisabled" type="number" @oninput="@(e => ChangeButtonTrue())"  id="quantity" class="form-control" @bind-value="@newOrderLine.Quantity" />
+            </div>
+
+            <div class="text-center p-3 mb-3">
+                <button class="btn btn-info" type="submit">Add another product to order</button>
+            </div>
+        </EditForm>
+
+    </div>
+</div>
+
+
+@code{
+
+    List<Product> Products = new List<Product>();
+    List<Customer> Customers = new List<Customer>();
+    List<OrderLine> OrderLines = new List<OrderLine>();
+    protected bool IsButtonDisabled = true;
+    protected bool IsInputDisabled = true;
+
+    /// <summary>
+    /// Changes the Add order button to be enabled
+    /// </summary>
+    private void ChangeButtonTrue()
+    {
+        IsButtonDisabled = false;
+    }
+
+    /// <summary>
+    /// Changes the quantity field to be enabled
+    /// </summary>
+    private void ChangeInputTrue()
+    {
+        IsInputDisabled = false;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Products = productService.GetProductsAsync().Result;
+        Customers = customerService.GetCustomersAsync().Result;
+    }
+
+    Order newOrder = new Order();
+
+    /// <summary>
+    /// Calls AddOrdersAsync from OrderRepo with order that is to be added and clears newOrder
+    /// </summary>
+    private void AddNewOrder()
+    {
+        orderService.AddOrdersAsync(newOrder);
+        newOrder = new Order();
+    }
+
+    OrderLine newOrderLine = new OrderLine();
+
+    /// <summary>
+    /// Adds current newOrderLine to OrderLines and clears values from newOrderLine
+    /// Also disables Add order button and quantity field
+    /// </summary>
+    private void AddOrderLineToList()
+    {
+        IsButtonDisabled = true;
+        IsInputDisabled = true;
+        OrderLines.Add(newOrderLine);
+        newOrderLine = new OrderLine();
+    }
+
+    /// <summary>
+    /// Adding all orderLines from OrderLines to database and clears the OrderLines list
+    /// </summary>
+    private void AddNewOrderLines()
+    {
+        foreach(OrderLine orderLine in OrderLines)
+        {
+            orderLineService.AddOrderLinesAsync(orderLine);
+        }
+        OrderLines.Clear();
+    }
+
+    /// <summary>
+    /// Adds current newOrderLine to OrderLines list.
+    /// Adds new order to database
+    /// Adds all orderLines from OrderLines list to database
+    /// </summary>
+    private void AddnewOrderLineAndOrder()
+    {
+        AddOrderLineToList();
+        AddNewOrder();
+        AddNewOrderLines();
+    }
+}

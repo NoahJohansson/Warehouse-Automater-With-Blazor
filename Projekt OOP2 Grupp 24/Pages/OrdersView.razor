@@ -1,0 +1,474 @@
+﻿@page "/orders"
+
+@using Projekt_OOP2_Grupp_24.Data
+
+@inject IProductRepo productService;
+@inject ICustomerRepo customerService;
+@inject IOrderRepo orderService;
+@inject IOrderLineRepo orderLineService;
+<h1> Orders </h1>
+<div style="float:left">
+    <button class="btn btn-dark" @onclick="GetDispatchedOrders">
+        Show Dispatched orders
+    </button>
+</div>
+
+<div style="float:right">
+    <button class="btn btn-dark" @onclick="GetPendingOrders">
+        Show Pending orders
+    </button>
+</div>
+@if (ShowDispatchedOrders)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Order information</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Customer ID</td>
+                <td>Delivery adress</td>
+                <td>Dispatched?</td>
+                <td>Order ID</td>
+                <td>Order date</td>
+                <td>Payment Completed?</td>
+
+
+            </tr>
+            @foreach (var ord in DispatchedOrders)
+            {
+                <tr>
+                    <td> @ord.CustomerId </td>
+                    <td> @ord.DeliveryAdress </td>
+                    <td> @ord.Dispatched </td>
+                    <td> @ord.Id </td>
+                    <td> @ord.OrderDate </td>
+                    <td> @ord.PaymentCompleted </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+@if (ShowPendingOrders)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Order information</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Customer ID</td>
+                <td>Customer Name</td>
+                <td>Delivery adress</td>
+                <td>Earliest dispatch time</td>
+                <td>Order ID</td>
+                <td>Order date</td>
+                <td>Payment Completed?</td>
+
+
+            </tr>
+            @foreach (var ord in PendingOrders)
+            {
+                <tr @onclick="(() => SetOrderForUpdates(ord))">
+                    <td> @ord.CustomerId </td>
+                    <td> @ord.Customer.Name </td>
+                    <td> @ord.DeliveryAdress </td>
+                    <td> @productService.GetClosestRestockingDate(ord) </td>
+                    <td> @ord.Id </td>
+                    <td> @ord.OrderDate </td>
+                    <td> @ord.PaymentCompleted </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="col-5 bg-light m-3 justify-content-start">
+        <div class="p-3 mb-3 bg-primary text-white text-center">
+            Update Pending Order
+        </div>
+        <EditForm Model="@updatedOrder" OnValidSubmit="(() => UpdateOrder())">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <label for="id">Order ID </label>
+            <td> @updatedOrder.Id </td>
+            <td>&nbsp;</td>
+            <label for="paymentcompleted"> Payment Completed? </label>
+            <td> @updatedOrder.PaymentCompleted </td>
+            <button disabled="@TogglePaidButtonDisabled" class="btn btn-success" type="button" @onclick="(()=>
+                        TogglePaid(updatedOrder))">
+                Toggle payment
+            </button>
+            <td>&nbsp;</td>
+            <div class="form-group">
+                <label for="name">Delivery Adress </label>
+                <input type="text" id="name" class="form-control" @bind-value="@updatedOrder.DeliveryAdress" />
+            </div>
+            <div class="text-center p-3 mb-3">
+                <button disabled="@UpdateOrderButtonDisabled" class="btn btn-info" type="submit">
+                    Update
+                    Order
+                </button>
+            </div>
+        </EditForm>
+    </div>
+
+}
+
+<text>&nbsp;</text>
+<text>&nbsp;</text>
+<text>&nbsp;</text>
+<text>&nbsp;</text>
+<text>&nbsp;</text>
+<text>&nbsp;</text>
+
+<div>
+    <button style="margin-top:30px" class=" btn btn-info" @onclick="(()=> ProcessOrders())"> Process pending orders </button>
+</div>
+
+<div class="col-5 bg-light m-3 justify-content-start">
+    <div class="p-3 mb-3 bg-primary text-white text-center" style="margin-top:90px;">
+        Find orders of a customer
+    </div>
+    <EditForm Model="@findCustomerById">
+        <div class="form-group">
+            <label for="Id">Customer name </label>
+            <InputSelectNumber @bind-Value="findCustomerById">
+                @foreach (var cust in Customers)
+                {
+                    <option value="@cust.Id"> @cust.Name</option>
+                }
+            </InputSelectNumber>
+            <label for="Id">Dispatched or pending orders </label>
+            <InputSelect @bind-Value="customerOrderDispatchedOrNotString">
+                <option> --- </option>
+                <option value="true"> Dispatched</option>
+                <option value="false"> Pending</option>
+
+            </InputSelect>
+        </div>
+        <div class="text-center p-3 mb-3">
+            <button class="btn btn-info" @onclick="FindCustomerAndGetOrderLines">
+                Find
+                Customer
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+<table class="table" style="margin-bottom:40px;">
+    <thead>
+        <tr>
+            <th style="font-size:22px;">Orders</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (CustomerDispatchedOrders.Count > 0)
+        {
+            @foreach (var ord in CustomerDispatchedOrders)
+            {
+                <tr>
+                    <th>Order information</th>
+                </tr>
+                <tr>
+                    <td>Order Id</td>
+                    <td>Delivery Adress</td>
+                    <td>Dispatched?</td>
+                    <td>OrderDate</td>
+                </tr>
+                <tr>
+                    <td> @ord.Id</td>
+                    <td> @ord.DeliveryAdress</td>
+                    <td> @ord.Dispatched</td>
+                    <td> @ord.OrderDate</td>
+                </tr>
+                <tr>
+                    <th style="font-size:13px;">Orderline information</th>
+                </tr>
+                <tr>
+                    <td> Product Id</td>
+                    <td> Product name</td>
+                    <td> Quantity</td>
+                </tr>
+                @foreach (var orderline in ord.Items)
+                {
+                    @if (orderline.OrderId == ord.Id)
+                    {
+                        <tr style="margin-bottom:40px;">
+                            <td> @orderline.ProductId </td>
+                            <td> @orderline.Product.Name </td>
+                            <td> @orderline.Quantity </td>
+                        </tr>
+                    }
+                }
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+            }
+        }
+
+        else
+        {
+            @foreach (var ord in CustomerPendingOrders)
+            {
+                <tr>
+                    <th>Order information</th>
+                </tr>
+                <tr>
+                    <td>Order Id</td>
+                    <td>Delivery Adress</td>
+                    <td>Dispatched?</td>
+                    <td>OrderDate</td>
+                </tr>
+                <tr>
+                    <td> @ord.Id</td>
+                    <td> @ord.DeliveryAdress</td>
+                    <td> @ord.Dispatched</td>
+                    <td> @ord.OrderDate</td>
+                </tr>
+                <tr>
+                    <th style="font-size:13px;">Orderline information</th>
+                </tr>
+                <tr>
+                    <td> Product Id</td>
+                    <td> Product name</td>
+                    <td> Quantity</td>
+                </tr>
+                @foreach (var orderline in ord.Items)
+                {
+                    @if (orderline.OrderId == ord.Id)
+                    {
+                        <tr style="margin-bottom:40px;">
+                            <td> @orderline.ProductId </td>
+                            <td> @orderline.Product.Name </td>
+                            <td> @orderline.Quantity </td>
+                        </tr>
+                    }
+                }
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+                <tr><text>&nbsp;</text></tr>
+            }
+        }
+    </tbody>
+</table>
+
+
+@code{
+
+    List<Order> Orders;
+    List<Order> DispatchedOrders = new List<Order>();
+    List<Order> PendingOrders = new List<Order>();
+    List<Order> CustomerDispatchedOrders = new List<Order>();
+    List<Order> CustomerPendingOrders = new List<Order>();
+    List<OrderLine> OrderLines = new List<OrderLine>();
+
+
+    List<Product> Products;
+    List<Customer> Customers;
+    Customer FoundCustomer = new Customer();
+    Order updatedOrder = new Order();
+
+
+    private bool ShowDispatchedOrders = false;
+    private bool ShowPendingOrders = false;
+
+    protected bool UpdateOrderButtonDisabled = true;
+    protected bool TogglePaidButtonDisabled = true;
+
+    int findCustomerById;
+    bool customerOrderDispatchedOrNot = false;
+    string customerOrderDispatchedOrNotString;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        Orders = await orderService.GetOrdersAsync();
+        Products = await productService.GetProductsAsync();
+        Customers = await customerService.GetCustomersAsync();
+        orderService.OrderChanged += UpdateGUI;
+        CustomerDispatchedOrders = await customerService.GetArchivedOrders(findCustomerById);
+        CustomerPendingOrders = await customerService.GetActiveOrders(findCustomerById);
+    }
+
+    /// <summary>
+    /// Updates GUI
+    /// </summary>
+    private async void UpdateGUI()
+    {
+        Orders = await orderService.GetOrdersAsync();
+        DispatchedOrders = await orderService.GetDispatchedOrders();
+        PendingOrders = await orderService.GetPendingOrders();
+    }
+
+    /// <summary>
+    /// Sets FoundCustomer to Customer found using unique ID with GetCustomerById()
+    /// </summary>
+    private async Task FindCustomer()
+    {
+        FoundCustomer = customerService.GetCustomerById(findCustomerById).Result;
+    }
+
+    /// <summary>
+    /// Fetches all orderLines in database
+    /// </summary>
+    private async Task GetOrderLines()
+    {
+        OrderLines = orderLineService.GetAllOrderLines().Result;
+    }
+
+    /// <summary>
+    /// Sets either CustomerPendingOrders or CustomerDispatchedOrders to records from database depending on
+    /// value of customerOrderDispatchedOrNotString
+    /// </summary>
+    private async Task FindCustomerAndGetOrderLines()
+    {
+        FindCustomer();
+        GetOrderLines();
+        if (customerOrderDispatchedOrNotString == "true")
+        {
+            CustomerPendingOrders.Clear();
+            GetArchivedOrders();
+        }
+
+        else
+        {
+            CustomerDispatchedOrders.Clear();
+            GetActiveOrders();
+        }
+    }
+
+    /// <summary>
+    /// Toogles PaymentCompleted of order to opposite of current value and updates in database
+    /// </summary>
+    /// <param name="order"> The order that will be updated</param>
+    private void TogglePaid(Order order)
+    {
+        if (order.PaymentCompleted == false)
+        {
+            order.PaymentCompleted = true;
+            orderService.UpdateOrdersAsync(order);
+        }
+
+        else
+        {
+            order.PaymentCompleted = false;
+            orderService.UpdateOrdersAsync(order);
+        }
+    }
+
+    /// <summary>
+    /// Calls ProcessOrders() method in OrderRepo class
+    /// </summary>
+    private void ProcessOrders()
+    {
+        orderService.ProcessOrders();
+    }
+
+    /// <summary>
+    /// Sets order for update and enables toggle paid button and Update button
+    /// </summary>
+    /// <param name="selected"> The order that is to be updated </param>
+    private void SetOrderForUpdates(Order selected)
+    {
+        updatedOrder = selected;
+        TogglePaidButtonDisabled = false;
+        UpdateOrderButtonDisabled = false;
+
+    }
+
+    /// <summary>
+    /// Updates order in database
+    /// </summary>
+    private void UpdateOrder()
+    {
+        orderService.UpdateOrdersAsync(updatedOrder);
+        updatedOrder = new Order();
+        TogglePaidButtonDisabled = true;
+        UpdateOrderButtonDisabled = true;
+    }
+
+    /// <summary>
+    /// Sets value of DispatchedOrders and changes ShowDispatchedOrders/ShowPendingOrders accordingly
+    /// </summary>
+    private async Task GetDispatchedOrders()
+    {
+        DispatchedOrders = await orderService.GetDispatchedOrders();
+        if (ShowPendingOrders == false)
+        {
+            if (ShowDispatchedOrders)
+            {
+                ShowDispatchedOrders = false;
+            }
+            else
+            {
+                ShowDispatchedOrders = true;
+            }
+        }
+        else
+        {
+            ShowPendingOrders = false;
+            if (ShowDispatchedOrders)
+            {
+                ShowDispatchedOrders = false;
+            }
+            else
+            {
+                ShowDispatchedOrders = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets value of PendingOrders and changes ShowDispatchedOrders/ShowPendingOrders accordingly
+    /// </summary>
+    private async Task GetPendingOrders()
+    {
+        PendingOrders = await orderService.GetPendingOrders();
+        if (ShowDispatchedOrders == false)
+        {
+            if (ShowPendingOrders)
+            {
+                ShowPendingOrders = false;
+            }
+            else
+            {
+                ShowPendingOrders = true;
+            }
+        }
+        else
+        {
+            ShowDispatchedOrders = false;
+            if (ShowPendingOrders)
+            {
+                ShowPendingOrders = false;
+            }
+            else
+            {
+                ShowPendingOrders = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets archived orders from CustomerRepo class and sets CustomerDispatchedOrders to reuslt
+    /// </summary>
+    private async Task GetArchivedOrders()
+    {
+        CustomerDispatchedOrders = await customerService.GetArchivedOrders(findCustomerById);
+    }
+
+    /// <summary>
+    /// Gets active orders from CustomerRepo class and sets CustomerPendingOrders to reuslt
+    /// </summary>
+    private async Task GetActiveOrders()
+    {
+        CustomerPendingOrders = await customerService.GetActiveOrders(findCustomerById);
+    }
+}
